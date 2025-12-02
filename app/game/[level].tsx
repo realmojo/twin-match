@@ -13,9 +13,21 @@ import {
 } from "react-native-google-mobile-ads";
 
 import {
+  logHintUsed,
+  logInterstitialAdShown,
+  logLevelComplete,
+  logLevelStart,
+  logRewardedAdWatched,
+} from "@/utils/analytics";
+import {
+  addGlobalHints,
   completeLevel,
+  getGlobalHints,
+  getRewardRemaining,
   saveLastInterstitialAdTime,
   shouldShowInterstitialAd,
+  useGlobalHint,
+  useReward,
 } from "@/utils/levelStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -35,17 +47,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // Ad unit IDs
 const AD_UNIT_ID = __DEV__
   ? TestIds.BANNER
-  : "ca-app-pub-3940256099942544/6300978111";
+  : "ca-app-pub-9130836798889522/6363337173";
 
-const REWARDED_AD_UNIT_ID =
-  __DEV__ && TestIds
-    ? TestIds.REWARDED
-    : "ca-app-pub-9130836798889522/7093964916";
+const REWARDED_AD_UNIT_ID = __DEV__
+  ? TestIds.REWARDED
+  : "ca-app-pub-9130836798889522/7093964916";
 
-const INTERSTITIAL_AD_UNIT_ID =
-  __DEV__ && TestIds
-    ? TestIds.INTERSTITIAL
-    : "ca-app-pub-9130836798889522/3290451277";
+const INTERSTITIAL_AD_UNIT_ID = __DEV__
+  ? TestIds.INTERSTITIAL
+  : "ca-app-pub-9130836798889522/3290451277";
 
 // Icon names for cards
 const ICON_NAMES = [
@@ -147,8 +157,8 @@ export default function GameScreen() {
   const [isGameComplete, setIsGameComplete] = useState(false);
   const [isShowingHint, setIsShowingHint] = useState(false);
   const [hintCountdown, setHintCountdown] = useState(0);
-  const [hintRemaining, setHintRemaining] = useState(3); // 초기값 3번
-  const [rewardRemaining, setRewardRemaining] = useState(3); // 보상 횟수 최대 3번
+  const [hintRemaining, setHintRemaining] = useState(3); // 전역 힌트 수 (로드 후 업데이트됨)
+  const [rewardRemaining, setRewardRemaining] = useState(3); // 전역 보상 횟수 (로드 후 업데이트됨)
   const [rewardedAd, setRewardedAd] = useState<RewardedAd | null>(null);
   const [interstitialAd, setInterstitialAd] = useState<InterstitialAd | null>(
     null
@@ -156,11 +166,28 @@ export default function GameScreen() {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
+  const [levelStartTime] = useState(Date.now()); // 레벨 시작 시간 저장
 
   const { rows, cols } = getGridSize(levelNumber);
   const padding = 20;
   const gap = 8;
   const cardSize = (width - padding * 2 - gap * (cols - 1)) / cols;
+
+  // Track level start
+  useEffect(() => {
+    logLevelStart(levelNumber);
+  }, [levelNumber]);
+
+  // Load global hints and reward remaining on mount and level change
+  useEffect(() => {
+    const loadGlobalData = async () => {
+      const hints = await getGlobalHints();
+      const rewards = await getRewardRemaining();
+      setHintRemaining(hints);
+      setRewardRemaining(rewards);
+    };
+    loadGlobalData();
+  }, [levelNumber]);
 
   // Load rewarded ad
   useEffect(() => {
@@ -179,12 +206,18 @@ export default function GameScreen() {
 
     const unsubscribeEarned = ad.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
-      (reward) => {
+      async (reward) => {
         console.log("User earned reward:", reward);
-        // 힌트 3개 추가
-        setHintRemaining((prev) => prev + 3);
-        setRewardRemaining((prev) => prev - 1);
+        // 힌트 3개 추가 (전역 저장)
+        await addGlobalHints(3);
+        const newHints = await getGlobalHints();
+        setHintRemaining(newHints);
+        // 보상 횟수 감소 (전역 저장)
+        const newRewards = await useReward();
+        setRewardRemaining(newRewards);
         Alert.alert("Reward!", "You received 3 hints!");
+        // Analytics: 보상형 광고 시청
+        logRewardedAdWatched(levelNumber);
       }
     );
 
@@ -226,7 +259,7 @@ export default function GameScreen() {
     };
   }, []);
 
-  const handleHint = useCallback(() => {
+  const handleHint = useCallback(async () => {
     if (isShowingHint || isGameComplete) {
       return;
     }
@@ -250,7 +283,11 @@ export default function GameScreen() {
 
     setIsShowingHint(true);
     setHintCountdown(10);
-    setHintRemaining((prev) => prev - 1);
+    // 힌트 사용 (전역 저장)
+    const newHints = await useGlobalHint();
+    setHintRemaining(newHints);
+    // Analytics: 힌트 사용
+    logHintUsed(levelNumber, newHints);
 
     // Save current card states
     const originalStates = cards.map((card) => ({
@@ -283,6 +320,7 @@ export default function GameScreen() {
     hintRemaining,
     rewardRemaining,
     rewardedAd,
+    levelNumber,
   ]);
 
   // Countdown timer for hint
@@ -359,6 +397,9 @@ export default function GameScreen() {
       completeLevel(levelNumber).catch((error) => {
         console.error("Failed to save level completion:", error);
       });
+      // Analytics: 레벨 완료
+      const levelTime = Date.now() - levelStartTime;
+      logLevelComplete(levelNumber, moves, levelTime);
 
       setTimeout(() => {
         setShowCompletionModal(true);
@@ -612,6 +653,8 @@ export default function GameScreen() {
                     const shouldShow = await shouldShowInterstitialAd();
                     if (shouldShow && interstitialAd && interstitialAd.loaded) {
                       await saveLastInterstitialAdTime();
+                      // Analytics: 전면 광고 표시
+                      logInterstitialAdShown(levelNumber);
                       interstitialAd.show();
                       // 광고가 닫힌 후 다음 레벨로 이동 (이벤트 리스너에서 처리)
                       const unsubscribe = interstitialAd.addAdEventListener(
@@ -629,16 +672,14 @@ export default function GameScreen() {
                   }
                 }}
               >
-                <ThemedText
-                  style={[styles.modalButtonText, { color: "#ffffff" }]}
-                >
+                <ThemedText style={[styles.modalButtonText]}>
                   {levelNumber < 200 ? "Next Level" : "Finish"}
                 </ThemedText>
                 {levelNumber < 200 && (
                   <Ionicons
                     name="arrow-forward"
                     size={20}
-                    color="#ffffff"
+                    color="#111"
                     style={{ marginLeft: 8 }}
                   />
                 )}
@@ -877,5 +918,8 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#111",
+    textAlign: "center",
+    lineHeight: 24,
   },
 });

@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { logScreenView } from "@/utils/analytics";
 import { getCompletedLevels, getUnlockedLevels } from "@/utils/levelStorage";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -44,6 +45,11 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Track screen view
+  useEffect(() => {
+    logScreenView("Home");
+  }, []);
 
   // Get background color for ad container
   const adBackgroundColor =

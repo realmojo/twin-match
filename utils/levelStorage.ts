@@ -3,6 +3,8 @@ import { Platform } from "react-native";
 
 const COMPLETED_LEVELS_KEY = "@twin_match:completed_levels";
 const UNLOCKED_LEVELS_KEY = "@twin_match:unlocked_levels";
+const GLOBAL_HINTS_KEY = "@twin_match:global_hints";
+const REWARD_REMAINING_KEY = "@twin_match:reward_remaining";
 
 // Safe storage abstraction that works on web and native
 const safeStorage = {
@@ -139,6 +141,8 @@ export const resetProgress = async (): Promise<void> => {
   try {
     await safeStorage.removeItem(COMPLETED_LEVELS_KEY);
     await safeStorage.removeItem(UNLOCKED_LEVELS_KEY);
+    await safeStorage.removeItem(GLOBAL_HINTS_KEY);
+    await safeStorage.removeItem(REWARD_REMAINING_KEY);
   } catch (error) {
     console.error("Error resetting progress:", error);
   }
@@ -179,5 +183,97 @@ export const shouldShowInterstitialAd = async (): Promise<boolean> => {
   } catch (error) {
     console.error("Error checking interstitial ad time:", error);
     return false;
+  }
+};
+
+// Get global hints count (shared across all levels)
+export const getGlobalHints = async (): Promise<number> => {
+  try {
+    const data = await safeStorage.getItem(GLOBAL_HINTS_KEY);
+    if (data !== null) {
+      return parseInt(data, 10);
+    }
+    // Initialize with 3 hints if not set
+    await setGlobalHints(3);
+    return 3;
+  } catch (error) {
+    console.error("Error getting global hints:", error);
+    return 3; // Default to 3 hints
+  }
+};
+
+// Set global hints count
+export const setGlobalHints = async (count: number): Promise<void> => {
+  try {
+    await safeStorage.setItem(GLOBAL_HINTS_KEY, count.toString());
+  } catch (error) {
+    console.error("Error setting global hints:", error);
+  }
+};
+
+// Add hints to global count
+export const addGlobalHints = async (count: number): Promise<void> => {
+  try {
+    const current = await getGlobalHints();
+    await setGlobalHints(current + count);
+  } catch (error) {
+    console.error("Error adding global hints:", error);
+  }
+};
+
+// Use one hint (decrease by 1)
+export const useGlobalHint = async (): Promise<number> => {
+  try {
+    const current = await getGlobalHints();
+    if (current > 0) {
+      const newCount = current - 1;
+      await setGlobalHints(newCount);
+      return newCount;
+    }
+    return current;
+  } catch (error) {
+    console.error("Error using global hint:", error);
+    return await getGlobalHints();
+  }
+};
+
+// Get reward remaining count (shared across all levels)
+export const getRewardRemaining = async (): Promise<number> => {
+  try {
+    const data = await safeStorage.getItem(REWARD_REMAINING_KEY);
+    if (data !== null) {
+      return parseInt(data, 10);
+    }
+    // Initialize with 3 rewards if not set
+    await setRewardRemaining(3);
+    return 3;
+  } catch (error) {
+    console.error("Error getting reward remaining:", error);
+    return 3; // Default to 3 rewards
+  }
+};
+
+// Set reward remaining count
+export const setRewardRemaining = async (count: number): Promise<void> => {
+  try {
+    await safeStorage.setItem(REWARD_REMAINING_KEY, count.toString());
+  } catch (error) {
+    console.error("Error setting reward remaining:", error);
+  }
+};
+
+// Use one reward (decrease by 1)
+export const useReward = async (): Promise<number> => {
+  try {
+    const current = await getRewardRemaining();
+    if (current > 0) {
+      const newCount = current - 1;
+      await setRewardRemaining(newCount);
+      return newCount;
+    }
+    return current;
+  } catch (error) {
+    console.error("Error using reward:", error);
+    return await getRewardRemaining();
   }
 };
