@@ -2,14 +2,14 @@
   "expo": {
     "name": "TwinMatch",
     "slug": "twin-match",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "twinmatch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.mojoday.twinmatch"
     },
     "android": {
