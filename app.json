@@ -2,7 +2,7 @@
   "expo": {
     "name": "TwinMatch",
     "slug": "twin-match",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "scheme": "twinmatch",
@@ -45,9 +45,9 @@
         "react-native-google-mobile-ads",
         {
           "androidAppId": "ca-app-pub-9130836798889522~7784230055",
-          "iosAppId": "ca-app-pub-9130836798889522~7784230055",
+          "iosAppId": "ca-app-pub-9130836798889522~6825265352",
           "android_app_id": "ca-app-pub-9130836798889522~7784230055",
-          "ios_app_id": "ca-app-pub-9130836798889522~7784230055",
+          "ios_app_id": "ca-app-pub-9130836798889522~6825265352",
           "sk_ad_network_items": [
             "cstr6suwn9.skadnetwork",
             "4fzdc2evr5.skadnetwork",

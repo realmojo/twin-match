@@ -34,7 +34,11 @@ const COLUMNS = 4;
 
 // Ad unit ID
 const getAdUnitId = () => {
-  return __DEV__ ? TestIds.BANNER : "ca-app-pub-9130836798889522/6363337173";
+  return __DEV__
+    ? TestIds.BANNER
+    : Platform.OS === "ios"
+    ? "ca-app-pub-9130836798889522/5936647529"
+    : "ca-app-pub-9130836798889522/6363337173";
 };
 
 const AD_UNIT_ID = getAdUnitId();

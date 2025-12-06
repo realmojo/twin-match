@@ -47,14 +47,20 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // Ad unit IDs
 const AD_UNIT_ID = __DEV__
   ? TestIds.BANNER
+  : Platform.OS === "ios"
+  ? "ca-app-pub-9130836798889522/5936647529"
   : "ca-app-pub-9130836798889522/6363337173";
 
 const REWARDED_AD_UNIT_ID = __DEV__
   ? TestIds.REWARDED
+  : Platform.OS === "ios"
+  ? "ca-app-pub-9130836798889522/3310484189"
   : "ca-app-pub-9130836798889522/7093964916";
 
 const INTERSTITIAL_AD_UNIT_ID = __DEV__
   ? TestIds.INTERSTITIAL
+  : Platform.OS === "ios"
+  ? "ca-app-pub-9130836798889522/4623565850"
   : "ca-app-pub-9130836798889522/3290451277";
 
 // Icon names for cards
@@ -164,8 +170,11 @@ export default function GameScreen() {
     null
   );
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showRewardAdModal, setShowRewardAdModal] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [scaleAnim] = useState(new Animated.Value(0.8));
+  const [rewardAdModalFadeAnim] = useState(new Animated.Value(0));
+  const [rewardAdModalScaleAnim] = useState(new Animated.Value(0.8));
   const [levelStartTime] = useState(Date.now()); // 레벨 시작 시간 저장
 
   const { rows, cols } = getGridSize(levelNumber);
@@ -264,11 +273,26 @@ export default function GameScreen() {
       return;
     }
 
-    // 힌트가 없고 보상이 남아있으면 보상형 광고 표시
+    // 힌트가 없고 보상이 남아있으면 보상형 광고 확인 모달 표시
     if (hintRemaining <= 0 && rewardRemaining > 0 && rewardedAd) {
       const isLoaded = rewardedAd.loaded;
       if (isLoaded) {
-        rewardedAd.show();
+        // 모달 표시
+        setShowRewardAdModal(true);
+        // 애니메이션 시작
+        Animated.parallel([
+          Animated.timing(rewardAdModalFadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.spring(rewardAdModalScaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+        ]).start();
       } else {
         Alert.alert("Ad Not Ready", "Please wait a moment and try again.");
         rewardedAd.load();
@@ -551,6 +575,147 @@ export default function GameScreen() {
           {cards.map((card, index) => renderCard(card, index))}
         </View>
       </View>
+
+      {/* 보상형 광고 확인 모달 */}
+      <Modal
+        visible={showRewardAdModal}
+        transparent={true}
+        animationType="none"
+        onRequestClose={() => setShowRewardAdModal(false)}
+      >
+        <Animated.View
+          style={[
+            styles.modalOverlay,
+            {
+              opacity: rewardAdModalFadeAnim,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              setShowRewardAdModal(false);
+              Animated.parallel([
+                Animated.timing(rewardAdModalFadeAnim, {
+                  toValue: 0,
+                  duration: 200,
+                  useNativeDriver: true,
+                }),
+                Animated.timing(rewardAdModalScaleAnim, {
+                  toValue: 0.8,
+                  duration: 200,
+                  useNativeDriver: true,
+                }),
+              ]).start();
+            }}
+          />
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                transform: [{ scale: rewardAdModalScaleAnim }],
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? Colors.dark.background
+                    : Colors.light.background,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Ionicons
+                name="gift"
+                size={60}
+                color={colors.tint}
+                style={styles.trophyIcon}
+              />
+              <ThemedText type="title" style={styles.modalTitle}>
+                힌트를 받으시겠어요?
+              </ThemedText>
+              <ThemedText style={styles.modalSubtitle}>
+                광고를 시청하면 힌트 3개를 받을 수 있습니다
+              </ThemedText>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.secondaryButton,
+                  {
+                    borderColor: colors.tint,
+                  },
+                ]}
+                onPress={() => {
+                  setShowRewardAdModal(false);
+                  Animated.parallel([
+                    Animated.timing(rewardAdModalFadeAnim, {
+                      toValue: 0,
+                      duration: 200,
+                      useNativeDriver: true,
+                    }),
+                    Animated.timing(rewardAdModalScaleAnim, {
+                      toValue: 0.8,
+                      duration: 200,
+                      useNativeDriver: true,
+                    }),
+                  ]).start();
+                }}
+              >
+                <ThemedText
+                  style={[
+                    styles.modalButtonText,
+                    {
+                      color: colors.tint,
+                    },
+                  ]}
+                >
+                  취소
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.primaryButton,
+                  {
+                    backgroundColor: colors.tint,
+                  },
+                ]}
+                onPress={() => {
+                  setShowRewardAdModal(false);
+                  Animated.parallel([
+                    Animated.timing(rewardAdModalFadeAnim, {
+                      toValue: 0,
+                      duration: 200,
+                      useNativeDriver: true,
+                    }),
+                    Animated.timing(rewardAdModalScaleAnim, {
+                      toValue: 0.8,
+                      duration: 200,
+                      useNativeDriver: true,
+                    }),
+                  ]).start(() => {
+                    // 모달이 닫힌 후 광고 표시
+                    if (rewardedAd && rewardedAd.loaded) {
+                      rewardedAd.show();
+                    }
+                  });
+                }}
+              >
+                <ThemedText style={[styles.modalButtonText]}>
+                  광고 시청하기
+                </ThemedText>
+                <Ionicons
+                  name="play-circle"
+                  size={20}
+                  color="#111"
+                  style={{ marginLeft: 8 }}
+                />
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      </Modal>
 
       {/* 게임 완료 모달 */}
       <Modal
